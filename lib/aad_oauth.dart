@@ -60,6 +60,25 @@ class AadOAuth {
   bool tokenIsValid() {
     return Token.tokenIsValid(_token);
   }
+  
+  Future<bool> checkToken() async {
+    // load token from cache
+    _token = await _authStorage.loadTokenToCache();
+
+    //still have refreh token / try to get access token with refresh token
+    if (_token != null) {
+      await _performRefreshWithLogout();
+      
+      if (_token != null) {
+        //save token to cache
+        await _authStorage.saveTokenToCache(_token);
+        
+        return true;
+      }
+    }
+      
+    return false;
+  }
 
   /// Perform Azure AD logout.
   Future<void> logout() async {
@@ -107,6 +126,16 @@ class AadOAuth {
         _token = await _requestToken.requestRefreshToken(_token.refreshToken);
       } catch (e) {
         //do nothing (because later we try to do a full oauth code flow request)
+      }
+    }
+  }
+  
+  Future<void> _performRefreshWithLogout() async {
+    if (_token.refreshToken != null) {
+      try {
+        _token = await _requestToken.requestRefreshToken(_token.refreshToken);
+      } catch (e) {
+        await logout();
       }
     }
   }
